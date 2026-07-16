@@ -63,7 +63,7 @@
             <thead>
               <tr>
                 <th>Cuenta</th><th>Discord</th><th>Nombre IC</th><th>Cédula</th>
-                <th>Saldo</th><th>Nivel</th><th>Estado</th><th>Acciones</th>
+                <th>Efectivo</th><th>Saldo</th><th>Nivel</th><th>Estado</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody id="accounts-tbody"><tr><td colspan="8" class="empty-state">Cargando cuentas...</td></tr></tbody>
@@ -118,6 +118,13 @@
   <div class="modal-box glass">
     <h3 id="money-modal-title">Agregar dinero</h3>
     <p class="text-dim" style="font-size:13px;margin-bottom:14px;" id="money-modal-sub">—</p>
+    <div class="field">
+      <label>Destino</label>
+      <select id="money-target">
+        <option value="bank">Banco (saldo bancario)</option>
+        <option value="cash">Efectivo (dinero en mano)</option>
+      </select>
+    </div>
     <div class="field"><label>Monto (₡)</label><input type="number" id="money-amount" min="1"></div>
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost btn-block" id="money-modal-cancel">Cancelar</button>

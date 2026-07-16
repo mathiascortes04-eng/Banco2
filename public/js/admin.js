@@ -71,7 +71,7 @@ async function loadAccounts(q = '') {
 function renderAccountsTable() {
   const tbody = document.getElementById('accounts-tbody');
   if (allAccounts.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No se encontraron cuentas.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No se encontraron cuentas.</td></tr>';
     return;
   }
   tbody.innerHTML = allAccounts.map(a => `
@@ -80,6 +80,7 @@ function renderAccountsTable() {
       <td>${escapeHtml(a.discordUser)}</td>
       <td>${escapeHtml(a.nombreIC)}</td>
       <td>${escapeHtml(a.cedulaIC)}</td>
+      <td>${fmtColones(a.cash || 0)}</td>
       <td>${fmtColones(a.balance)}</td>
       <td><span class="badge ${nivelBadgeClass(a.nivel)}">${a.nivel}</span></td>
       <td><span class="badge ${a.status === 'activo' ? 'badge-activo' : 'badge-bloqueado'}">${a.status}</span></td>
@@ -172,9 +173,10 @@ function setupMoneyModal() {
   });
   document.getElementById('money-modal-confirm').addEventListener('click', async () => {
     const amount = Number(document.getElementById('money-amount').value);
+    const target = document.getElementById('money-target').value;
     if (!amount || amount <= 0) return toast('Monto inválido.', 'err');
     try {
-      await api(`/admin/accounts/${moneyModalAccountId}/${moneyModalMode}`, { method: 'POST', body: JSON.stringify({ amount }) });
+      await api(`/admin/accounts/${moneyModalAccountId}/${moneyModalMode}`, { method: 'POST', body: JSON.stringify({ amount, target }) });
       toast(moneyModalMode === 'give' ? 'Dinero agregado correctamente.' : 'Dinero retirado correctamente.', 'ok');
       document.getElementById('money-modal').classList.remove('show');
       await loadAccounts();
@@ -188,6 +190,7 @@ function openMoneyModal(mode, accountId, discordUser) {
   document.getElementById('money-modal-title').textContent = mode === 'give' ? 'Agregar dinero' : 'Quitar dinero';
   document.getElementById('money-modal-sub').textContent = `Cuenta de: ${discordUser}`;
   document.getElementById('money-amount').value = '';
+  document.getElementById('money-target').value = 'bank';
   document.getElementById('money-modal').classList.add('show');
 }
 

@@ -39,6 +39,16 @@ function adminOnly(req, res, next) {
   next();
 }
 
+// Autenticación para el bot de Discord: usa una API key compartida en vez de JWT/contraseña,
+// ya que el bot solo conoce el Usuario de Discord, no la contraseña bancaria de la persona.
+const BOT_API_KEY = process.env.BOT_API_KEY || null;
+function botAuth(req, res, next) {
+  if (!BOT_API_KEY) return res.status(500).json({ error: 'El servidor no tiene configurada BOT_API_KEY.' });
+  const key = req.headers['x-bot-api-key'];
+  if (!key || key !== BOT_API_KEY) return res.status(401).json({ error: 'API key del bot inválida.' });
+  next();
+}
+
 function publicAccount(a) {
   return {
     id: a.id,
@@ -49,6 +59,7 @@ function publicAccount(a) {
     edadIC: a.edadIC,
     role: a.role,
     balance: a.balance,
+    cash: a.cash || 0,
     status: a.status,
     cardNumber: a.cardNumber,
     cardCVV: a.cardCVV,
@@ -348,26 +359,32 @@ function processAllLoans() {
 setInterval(processAllLoans, 60 * 60 * 1000);
 
 // ================= DEPÓSITOS / RETIROS (usuario) =================
+// Depósito: mueve dinero de tu EFECTIVO hacia tu cuenta BANCARIA
+// Retiro: mueve dinero de tu cuenta BANCARIA hacia tu EFECTIVO
 
 app.post('/api/deposit', auth, (req, res) => {
   const monto = Number(req.body.amount);
   if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
   const account = db.findAccountById(req.account.id);
+  const cash = account.cash || 0;
+  if (cash < monto) return res.status(400).json({ error: 'No tienes suficiente efectivo disponible para depositar.' });
+  const newCash = cash - monto;
   const newBalance = account.balance + monto;
-  db.updateAccount(account.id, { balance: newBalance, lastIncome: new Date().toISOString() });
-  db.addTransaction({ accountId: account.id, type: 'deposito', amount: monto, description: `Depósito manual de ₡${monto.toLocaleString('es-CR')}` });
-  res.json({ ok: true, balance: newBalance });
+  db.updateAccount(account.id, { balance: newBalance, cash: newCash, lastIncome: new Date().toISOString() });
+  db.addTransaction({ accountId: account.id, type: 'deposito', amount: monto, description: `Depósito de efectivo de ₡${monto.toLocaleString('es-CR')}` });
+  res.json({ ok: true, balance: newBalance, cash: newCash });
 });
 
 app.post('/api/withdraw', auth, (req, res) => {
   const monto = Number(req.body.amount);
   if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
   const account = db.findAccountById(req.account.id);
-  if (account.balance < monto) return res.status(400).json({ error: 'Saldo insuficiente.' });
+  if (account.balance < monto) return res.status(400).json({ error: 'Saldo bancario insuficiente.' });
   const newBalance = account.balance - monto;
-  db.updateAccount(account.id, { balance: newBalance });
-  db.addTransaction({ accountId: account.id, type: 'retiro', amount: -monto, description: `Retiro de ₡${monto.toLocaleString('es-CR')}` });
-  res.json({ ok: true, balance: newBalance });
+  const newCash = (account.cash || 0) + monto;
+  db.updateAccount(account.id, { balance: newBalance, cash: newCash });
+  db.addTransaction({ accountId: account.id, type: 'retiro', amount: -monto, description: `Retiro a efectivo de ₡${monto.toLocaleString('es-CR')}` });
+  res.json({ ok: true, balance: newBalance, cash: newCash });
 });
 
 // ================= PANEL DE ADMINISTRADOR =================
@@ -431,7 +448,14 @@ app.post('/api/admin/accounts/:id/give', auth, adminOnly, (req, res) => {
   const target = db.findAccountById(req.params.id);
   if (!target) return res.status(404).json({ error: 'Cuenta no encontrada.' });
   const monto = Number(req.body.amount);
+  const tipo = req.body.target === 'cash' ? 'cash' : 'bank';
   if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
+  if (tipo === 'cash') {
+    const newCash = (target.cash || 0) + monto;
+    db.updateAccount(target.id, { cash: newCash });
+    db.addTransaction({ accountId: target.id, type: 'ajuste_admin_credito', amount: 0, description: `Efectivo agregado por administrador (${req.account.discordUser}): ₡${monto.toLocaleString('es-CR')}` });
+    return res.json({ ok: true, cash: newCash });
+  }
   const newBalance = target.balance + monto;
   db.updateAccount(target.id, { balance: newBalance, lastIncome: new Date().toISOString() });
   db.addTransaction({ accountId: target.id, type: 'ajuste_admin_credito', amount: monto, description: `Dinero agregado por administrador (${req.account.discordUser}): ₡${monto.toLocaleString('es-CR')}` });
@@ -442,7 +466,14 @@ app.post('/api/admin/accounts/:id/take', auth, adminOnly, (req, res) => {
   const target = db.findAccountById(req.params.id);
   if (!target) return res.status(404).json({ error: 'Cuenta no encontrada.' });
   const monto = Number(req.body.amount);
+  const tipo = req.body.target === 'cash' ? 'cash' : 'bank';
   if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
+  if (tipo === 'cash') {
+    const newCash = Math.max(0, (target.cash || 0) - monto);
+    db.updateAccount(target.id, { cash: newCash });
+    db.addTransaction({ accountId: target.id, type: 'ajuste_admin_debito', amount: 0, description: `Efectivo retirado por administrador (${req.account.discordUser}): ₡${monto.toLocaleString('es-CR')}` });
+    return res.json({ ok: true, cash: newCash });
+  }
   const newBalance = Math.max(0, target.balance - monto);
   db.updateAccount(target.id, { balance: newBalance });
   db.addTransaction({ accountId: target.id, type: 'ajuste_admin_debito', amount: -monto, description: `Dinero retirado por administrador (${req.account.discordUser}): ₡${monto.toLocaleString('es-CR')}` });
@@ -489,6 +520,73 @@ app.post('/api/admin/loans/:id/cancel', auth, adminOnly, (req, res) => {
 
 app.get('/api/admin/transactions', auth, adminOnly, (req, res) => {
   res.json({ transactions: db.getTransactions().slice(0, 300) });
+});
+
+// ================= RUTAS PARA EL BOT DE DISCORD (economía) =================
+// El bot llama estos endpoints con el header x-bot-api-key. Como usan la MISMA
+// base de datos (data/*.json) que la web, cualquier movimiento hecho desde el
+// bot se refleja al instante en la web y viceversa — es una sola fuente de verdad.
+
+app.get('/api/bot/account/:discordUser', botAuth, (req, res) => {
+  const account = db.findAccountByDiscord(req.params.discordUser);
+  if (!account) return res.status(404).json({ error: 'Ese Usuario de Discord no tiene cuenta en Banco Capital RP.' });
+  processLoansForAccount(account.id);
+  const fresh = db.findAccountById(account.id);
+  res.json({ account: publicAccount(fresh) });
+});
+
+app.post('/api/bot/deposit', botAuth, (req, res) => {
+  const { discordUser, amount } = req.body;
+  const monto = Number(amount);
+  const account = db.findAccountByDiscord(discordUser);
+  if (!account) return res.status(404).json({ error: 'Ese Usuario de Discord no tiene cuenta en Banco Capital RP.' });
+  if (account.status === 'bloqueado') return res.status(403).json({ error: 'Esa cuenta está bloqueada.' });
+  if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
+  const cash = account.cash || 0;
+  if (cash < monto) return res.status(400).json({ error: 'No tiene suficiente efectivo disponible para depositar.' });
+  const newCash = cash - monto;
+  const newBalance = account.balance + monto;
+  db.updateAccount(account.id, { balance: newBalance, cash: newCash, lastIncome: new Date().toISOString() });
+  db.addTransaction({ accountId: account.id, type: 'deposito', amount: monto, description: `Depósito de efectivo (Discord) de ₡${monto.toLocaleString('es-CR')}` });
+  res.json({ ok: true, balance: newBalance, cash: newCash });
+});
+
+app.post('/api/bot/withdraw', botAuth, (req, res) => {
+  const { discordUser, amount } = req.body;
+  const monto = Number(amount);
+  const account = db.findAccountByDiscord(discordUser);
+  if (!account) return res.status(404).json({ error: 'Ese Usuario de Discord no tiene cuenta en Banco Capital RP.' });
+  if (account.status === 'bloqueado') return res.status(403).json({ error: 'Esa cuenta está bloqueada.' });
+  if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido.' });
+  if (account.balance < monto) return res.status(400).json({ error: 'Saldo bancario insuficiente.' });
+  const newBalance = account.balance - monto;
+  const newCash = (account.cash || 0) + monto;
+  db.updateAccount(account.id, { balance: newBalance, cash: newCash });
+  db.addTransaction({ accountId: account.id, type: 'retiro', amount: -monto, description: `Retiro a efectivo (Discord) de ₡${monto.toLocaleString('es-CR')}` });
+  res.json({ ok: true, balance: newBalance, cash: newCash });
+});
+
+app.post('/api/bot/transfer', botAuth, (req, res) => {
+  const { discordUser, target, amount } = req.body;
+  const monto = Number(amount);
+  const sender = db.findAccountByDiscord(discordUser);
+  if (!sender) return res.status(404).json({ error: 'Ese Usuario de Discord no tiene cuenta en Banco Capital RP.' });
+  if (sender.status === 'bloqueado') return res.status(403).json({ error: 'Esa cuenta está bloqueada.' });
+  if (!target || !monto || monto <= 0) return res.status(400).json({ error: 'Datos de transferencia inválidos.' });
+  const recipient = db.findAccountByDiscord(target) || db.findAccountByNumber(target);
+  if (!recipient) return res.status(404).json({ error: 'No existe ninguna cuenta con ese Usuario de Discord o Número de Cuenta.' });
+  if (recipient.id === sender.id) return res.status(400).json({ error: 'No puedes transferirte dinero a ti mismo.' });
+  if (sender.balance < monto) return res.status(400).json({ error: 'Saldo bancario insuficiente para realizar la transferencia.' });
+
+  const newSenderBalance = sender.balance - monto;
+  const newRecipientBalance = recipient.balance + monto;
+  db.updateAccount(sender.id, { balance: newSenderBalance, lastTransfer: new Date().toISOString() });
+  db.updateAccount(recipient.id, { balance: newRecipientBalance, lastIncome: new Date().toISOString() });
+
+  db.addTransaction({ accountId: sender.id, type: 'transferencia_enviada', amount: -monto, description: `Transferencia enviada a ${recipient.discordUser} (${recipient.accountNumber}) vía Discord` });
+  db.addTransaction({ accountId: recipient.id, type: 'transferencia_recibida', amount: monto, description: `Transferencia recibida de ${sender.discordUser} (${sender.accountNumber}) vía Discord` });
+
+  res.json({ ok: true, balance: newSenderBalance, recipient: { discordUser: recipient.discordUser, accountNumber: recipient.accountNumber } });
 });
 
 // ================= SPA fallback =================

@@ -91,14 +91,20 @@
       </div>
 
       <div class="cards-grid">
+        <div class="glass stat-card accent-blue">
+          <div class="icon-badge">💵</div>
+          <div class="label">Dinero disponible</div>
+          <div class="value" id="stat-cash">₡0</div>
+          <div class="sub">Efectivo en mano</div>
+        </div>
         <div class="glass stat-card accent-fuchsia">
-          <div class="icon-badge">💰</div>
-          <div class="label">Saldo disponible</div>
+          <div class="icon-badge">🏦</div>
+          <div class="label">Dinero en el banco</div>
           <div class="value" id="stat-balance">₡0</div>
-          <div class="sub">Dinero en el banco</div>
+          <div class="sub">Saldo bancario disponible</div>
         </div>
         <div class="glass stat-card accent-purple">
-          <div class="icon-badge">🏦</div>
+          <div class="icon-badge">📄</div>
           <div class="label">Dinero prestado</div>
           <div class="value" id="stat-loaned">₡0</div>
           <div class="sub" id="stat-loaned-sub">Sin préstamos activos</div>
@@ -191,17 +197,17 @@
 
     <!-- ============ DEPÓSITOS / RETIROS ============ -->
     <section class="page-section hidden" id="section-movimientos">
-      <div class="topbar"><div><h1>Depósitos y retiros</h1><p>Agrega o retira dinero manualmente de tu cuenta</p></div></div>
+      <div class="topbar"><div><h1>Depósitos y retiros</h1><p>Mueve dinero entre tu efectivo en mano y tu cuenta bancaria. Esto también se puede hacer desde el bot de Discord con /depositar y /retirar, y se refleja al instante en ambos lados.</p></div></div>
       <div class="two-col">
         <div class="glass panel">
-          <div class="panel-head"><h2>💵 Depósito</h2></div>
+          <div class="panel-head"><h2>💵 Depósito</h2><p>Efectivo → Banco</p></div>
           <form id="deposit-form">
             <div class="field"><label>Monto a depositar (₡)</label><input type="number" id="deposit-amount" min="1" required></div>
             <button type="submit" class="btn btn-secondary btn-block">Depositar</button>
           </form>
         </div>
         <div class="glass panel">
-          <div class="panel-head"><h2>💰 Retiro</h2></div>
+          <div class="panel-head"><h2>💰 Retiro</h2><p>Banco → Efectivo</p></div>
           <form id="withdraw-form">
             <div class="field"><label>Monto a retirar (₡)</label><input type="number" id="withdraw-amount" min="1" required></div>
             <button type="submit" class="btn btn-danger btn-block">Retirar</button>

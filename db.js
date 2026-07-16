@@ -48,6 +48,7 @@ function initDB() {
       passwordHash: hash,
       role: 'admin',
       balance: 0,
+      cash: 0,
       status: 'activo', // activo | bloqueado
       cardNumber: generateCardNumber(),
       cardCVV: generateCVV(),
@@ -128,6 +129,7 @@ function createAccount({ discordUser, nombreIC, cedulaIC, edadIC, password }) {
     passwordHash,
     role: 'user',
     balance: 0,
+    cash: 0,
     status: 'activo',
     cardNumber: generateCardNumber(),
     cardCVV: generateCVV(),

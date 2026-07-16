@@ -32,6 +32,7 @@ Al iniciar por primera vez se crea automáticamente la **cuenta de administrador
 3. Railway detecta `package.json` y ejecuta `npm start` automáticamente.
 4. Variables de entorno recomendadas (Settings → Variables):
    - `JWT_SECRET` → una clave larga y aleatoria (cámbiala del valor por defecto).
+   - `BOT_API_KEY` → una clave larga y aleatoria que también debes poner en el `.env` del bot de Discord (`capital-rp-bank-bot`). Conecta el bot con esta web para que compartan el mismo saldo en tiempo real.
    - `PORT` → Railway la asigna automáticamente, no es necesario configurarla.
 5. **Importante:** los datos se guardan en `data/*.json` dentro del propio contenedor. Si usas un plan de Railway sin volumen persistente, los datos se reinician en cada despliegue. Para producción real, agrega un **Volume** en Railway apuntando a la carpeta `/app/data`.
 

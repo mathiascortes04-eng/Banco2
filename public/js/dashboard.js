@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupMobileMenu();
   setupForms();
   await loadDashboard();
+
+  // Refresca el saldo cada 20s — así si el bot de Discord mueve dinero
+  // (transferencia, depósito, retiro) se ve reflejado aquí sin recargar la página.
+  setInterval(() => { loadDashboard().catch(() => {}); }, 20000);
 });
 
 // ---------------- Navegación entre secciones ----------------
@@ -105,6 +109,7 @@ function renderUserChrome(acc) {
 }
 
 function renderInicio(acc, dineroPrestado, activeLoans) {
+  document.getElementById('stat-cash').textContent = fmtColones(acc.cash || 0);
   document.getElementById('stat-balance').textContent = fmtColones(acc.balance);
   document.getElementById('stat-loaned').textContent = fmtColones(dineroPrestado);
   document.getElementById('stat-loaned-sub').textContent = activeLoans.length > 0
