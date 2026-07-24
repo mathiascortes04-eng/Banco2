@@ -64,7 +64,7 @@ banco-capital-rp/
 - Middleware de autenticación y de administrador separados; las rutas `/api/admin/*` están bloqueadas para cuentas normales.
 
 ## 🏦 Reglas del sistema de préstamos
-- Máximo por préstamo: **₡40.000.000**. Mínimo: **₡1.000.000**.
+- Máximo por préstamo: **₡10.000.000**. Mínimo: **₡1.000.000**.
 - Un usuario solo puede tener **un préstamo activo a la vez**.
 - Pago automático semanal según el monto solicitado:
   - ₡1.000.000 – ₡4.999.999 → se rebaja **₡1.000.000** cada semana.

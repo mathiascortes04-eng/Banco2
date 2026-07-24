@@ -232,7 +232,7 @@ app.post('/api/transfer', auth, (req, res) => {
 
 // ================= PRÉSTAMOS =================
 
-const LOAN_MAX = 40000000;
+const LOAN_MAX = 10000000;
 const LOAN_MIN = 1000000;
 
 app.post('/api/loan/request', auth, (req, res) => {
@@ -304,9 +304,15 @@ app.post('/api/loan/cancel', auth, (req, res) => {
   const { loanId } = req.body;
   const loan = db.getLoansForAccount(req.account.id).find(l => l.id === loanId && l.status === 'activo');
   if (!loan) return res.status(404).json({ error: 'Préstamo no encontrado.' });
-  db.updateLoan(loan.id, { status: 'cancelado' });
-  db.addTransaction({ accountId: req.account.id, type: 'prestamo_cancelado', amount: 0, description: `Préstamo cancelado. Saldo pendiente al momento: ₡${loan.remaining.toLocaleString('es-CR')}` });
-  res.json({ ok: true });
+  const account = db.findAccountById(req.account.id);
+  if (account.balance < loan.remaining) {
+    return res.status(400).json({ error: `Saldo insuficiente para cancelar el préstamo. Necesitas ₡${loan.remaining.toLocaleString('es-CR')} en tu cuenta bancaria para pagarlo por completo.` });
+  }
+  const newBalance = account.balance - loan.remaining;
+  db.updateAccount(account.id, { balance: newBalance });
+  db.updateLoan(loan.id, { remaining: 0, status: 'pagado', history: [...(loan.history || []), { date: new Date().toISOString(), amount: loan.remaining, type: 'cancelacion_pago_total' }] });
+  db.addTransaction({ accountId: req.account.id, type: 'prestamo_cancelado', amount: -loan.remaining, description: `Préstamo cancelado — pago total de ₡${loan.remaining.toLocaleString('es-CR')} descontado de tu cuenta` });
+  res.json({ ok: true, balance: newBalance });
 });
 
 // Procesa pagos semanales automáticos vencidos para una cuenta específica
@@ -515,7 +521,19 @@ app.post('/api/admin/loans/:id/approve', auth, adminOnly, (req, res) => {
 app.post('/api/admin/loans/:id/cancel', auth, adminOnly, (req, res) => {
   const loan = db.getLoans().find(l => l.id === req.params.id);
   if (!loan) return res.status(404).json({ error: 'Préstamo no encontrado.' });
-  db.updateLoan(loan.id, { status: 'cancelado' });
+  const account = db.findAccountById(loan.accountId);
+  if (loan.status === 'activo' && account) {
+    const collected = Math.min(loan.remaining, account.balance);
+    const forgiven = loan.remaining - collected;
+    if (collected > 0) {
+      db.updateAccount(account.id, { balance: account.balance - collected });
+      db.addTransaction({ accountId: account.id, type: 'prestamo_cancelado', amount: -collected, description: `Préstamo cancelado por administrador (${req.account.discordUser}) — ₡${collected.toLocaleString('es-CR')} descontado de la cuenta` });
+    }
+    if (forgiven > 0) {
+      db.addTransaction({ accountId: account.id, type: 'prestamo_cancelado', amount: 0, description: `Préstamo cancelado por administrador (${req.account.discordUser}) — ₡${forgiven.toLocaleString('es-CR')} del saldo pendiente fue perdonado (saldo bancario insuficiente)` });
+    }
+  }
+  db.updateLoan(loan.id, { remaining: 0, status: 'cancelado' });
   res.json({ ok: true });
 });
 

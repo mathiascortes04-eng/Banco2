@@ -160,18 +160,23 @@ async function loadLoans() {
     requestPanel.querySelector('button').disabled = true;
 
     const pct = Math.max(0, Math.min(100, 100 - (active.remaining / active.amount) * 100));
+    const semanasRestantes = Math.max(1, Math.ceil(active.remaining / active.weeklyPayment));
     box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span class="badge badge-activo-loan">● Activo</span>
+      </div>
       <div style="font-size:13.5px;display:flex;flex-direction:column;gap:10px;">
         <div style="display:flex;justify-content:space-between;"><span class="text-dim">Monto original</span><strong>${fmtColones(active.amount)}</strong></div>
         <div style="display:flex;justify-content:space-between;"><span class="text-dim">Saldo pendiente</span><strong>${fmtColones(active.remaining)}</strong></div>
         <div style="display:flex;justify-content:space-between;"><span class="text-dim">Pago semanal</span><strong>${fmtColones(active.weeklyPayment)}</strong></div>
         <div style="display:flex;justify-content:space-between;"><span class="text-dim">Próximo pago</span><strong>${fmtDate(active.nextPaymentDate)}</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span class="text-dim">Semanas restantes</span><strong>${semanasRestantes}</strong></div>
         <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
         <div class="text-dim" style="font-size:11.5px;text-align:right;">${pct.toFixed(0)}% pagado</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:16px;">
         <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openPayEarly('${active.id}', ${active.remaining})">Abonar</button>
-        <button class="btn btn-danger btn-sm" style="flex:1" onclick="cancelLoan('${active.id}')">Cancelar</button>
+        <button class="btn btn-danger btn-sm" style="flex:1" onclick="cancelLoan('${active.id}', ${active.remaining})">Cancelar</button>
       </div>
     `;
   } catch (err) { toast(err.message, 'err'); }
@@ -188,11 +193,11 @@ async function openPayEarly(loanId, remaining) {
   } catch (err) { toast(err.message, 'err'); }
 }
 
-async function cancelLoan(loanId) {
-  if (!confirm('¿Seguro que deseas cancelar este préstamo? Esta acción quedará registrada.')) return;
+async function cancelLoan(loanId, remaining) {
+  if (!confirm(`Cancelar el préstamo paga el saldo pendiente de inmediato: se descontarán ${fmtColones(remaining)} de tu cuenta bancaria. ¿Deseas continuar?`)) return;
   try {
     await api('/loan/cancel', { method: 'POST', body: JSON.stringify({ loanId }) });
-    toast('Préstamo cancelado.', 'info');
+    toast('Préstamo cancelado y pagado por completo.', 'ok');
     await loadDashboard();
     await loadLoans();
   } catch (err) { toast(err.message, 'err'); }
@@ -207,7 +212,41 @@ async function loadStats() {
     document.getElementById('st-mensual').textContent = fmtColones(s.mensual);
     document.getElementById('st-recibido').textContent = fmtColones(s.recibido);
     document.getElementById('st-enviado').textContent = fmtColones(s.enviado);
+
+    const max = Math.max(s.recibido, s.enviado, 1);
+    document.getElementById('st-bar-recibido').style.width = `${(s.recibido / max) * 100}%`;
+    document.getElementById('st-bar-enviado').style.width = `${(s.enviado / max) * 100}%`;
+    document.getElementById('st-bar-recibido-label').textContent = fmtColones(s.recibido);
+    document.getElementById('st-bar-enviado-label').textContent = fmtColones(s.enviado);
+
+    if (currentAccount) renderNivelProgress(currentAccount.balance);
   } catch (err) { toast(err.message, 'err'); }
+}
+
+const NIVEL_TIERS = [
+  { nombre: 'Bronce', min: 0 },
+  { nombre: 'Plata', min: 5000000 },
+  { nombre: 'Oro', min: 15000000 },
+  { nombre: 'Platino', min: 30000000 },
+  { nombre: 'Diamante', min: 60000000 }
+];
+
+function renderNivelProgress(balance) {
+  const idx = NIVEL_TIERS.findIndex((t, i) => balance < (NIVEL_TIERS[i + 1] ? NIVEL_TIERS[i + 1].min : Infinity));
+  const actual = NIVEL_TIERS[idx];
+  const siguiente = NIVEL_TIERS[idx + 1];
+  const bar = document.getElementById('st-nivel-bar');
+  const detalle = document.getElementById('st-nivel-detalle');
+  const sub = document.getElementById('st-nivel-sub');
+  sub.textContent = `Nivel actual: ${actual.nombre}`;
+  if (!siguiente) {
+    bar.style.width = '100%';
+    detalle.textContent = '¡Ya alcanzaste el nivel máximo, Diamante!';
+    return;
+  }
+  const pct = Math.max(0, Math.min(100, ((balance - actual.min) / (siguiente.min - actual.min)) * 100));
+  bar.style.width = `${pct}%`;
+  detalle.textContent = `Te faltan ${fmtColones(siguiente.min - balance)} para llegar a nivel ${siguiente.nombre}`;
 }
 
 // ---------------- Formularios ----------------
@@ -251,14 +290,14 @@ function setupForms() {
     const amount = Number(e.target.value);
     const preview = document.getElementById('loan-preview');
     if (!amount) { preview.textContent = 'El pago semanal se calculará automáticamente.'; return; }
-    let weekly = amount > 10000000 ? 10000000 : amount >= 5000000 ? 5000000 : 1000000;
+    let weekly = amount >= 5000000 ? 5000000 : 1000000;
     preview.textContent = `Pago semanal estimado: ${fmtColones(weekly)}`;
   });
 
   document.getElementById('loan-form').addEventListener('submit', async e => {
     e.preventDefault();
     const amount = Number(document.getElementById('loan-amount').value);
-    if (amount < 1000000 || amount > 40000000) return toast('El préstamo debe estar entre ₡1.000.000 y ₡40.000.000.', 'err');
+    if (amount < 1000000 || amount > 10000000) return toast('El préstamo debe estar entre ₡1.000.000 y ₡10.000.000.', 'err');
     try {
       const data = await api('/loan/request', { method: 'POST', body: JSON.stringify({ amount }) });
       toast('Préstamo aprobado y depositado en tu cuenta.', 'ok');

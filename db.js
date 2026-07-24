@@ -204,7 +204,6 @@ function getLoansForAccount(accountId) {
 
 // ---------- Reglas de préstamo ----------
 function weeklyPaymentFor(amount) {
-  if (amount > 10000000) return 10000000;
   if (amount >= 5000000) return 5000000;
   if (amount >= 1000000) return 1000000;
   return Math.ceil(amount); // montos menores a 1M (no debería ocurrir, mínimo forzado en API)

@@ -118,9 +118,9 @@ h1, h2, h3, h4 {
 .btn-primary {
   background: linear-gradient(90deg, var(--fuchsia), var(--purple));
   color: var(--white);
-  box-shadow: 0 0 18px rgba(255, 46, 196, 0.35), 0 0 30px rgba(123, 47, 247, 0.25);
+  box-shadow: 0 0 12px rgba(255, 46, 196, 0.25);
 }
-.btn-primary:hover { box-shadow: 0 0 26px rgba(255, 46, 196, 0.55), 0 0 42px rgba(123, 47, 247, 0.4); }
+.btn-primary:hover { box-shadow: 0 0 20px rgba(255, 46, 196, 0.4); }
 
 .btn-secondary {
   background: rgba(34, 227, 255, 0.08);
@@ -492,6 +492,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 1024px) {
+  .cards-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}
+
 @media (max-width: 880px) {
   .sidebar { position: fixed; left: -270px; top: 0; height: 100vh; transition: left 0.25s ease; box-shadow: 20px 0 40px rgba(0,0,0,0.5); }
   .sidebar.open { left: 0; }
@@ -504,6 +508,30 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 4; display: none; }
   .sidebar-overlay.show { display: block; }
   .two-col { grid-template-columns: 1fr; }
+  .topbar h1 { font-size: 21px; }
+  .bank-card { min-height: 150px; padding: 20px; }
+  .bank-card .number { font-size: 17px; margin: 14px 0 12px; }
+}
+
+@media (max-width: 560px) {
+  .auth-card { padding: 28px 20px 22px; max-width: 100%; }
+  .auth-logo { width: 80px; }
+  .auth-title { font-size: 21px; }
+  .cards-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat-card { padding: 16px; }
+  .stat-card .value { font-size: 20px; }
+  .stat-card .icon-badge { font-size: 18px; top: 14px; right: 14px; }
+  .panel { padding: 18px; }
+  .modal-box { padding: 20px; }
+  .bank-card .row-bottom { flex-wrap: wrap; gap: 10px; }
+  table { font-size: 12px; }
+  th, td { padding: 8px; }
+  .tier-box { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 380px) {
+  .cards-grid { grid-template-columns: 1fr; }
+  .tier-box { grid-template-columns: 1fr; }
 }
 
 .text-dim { color: var(--dim); }
