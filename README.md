@@ -1,4 +1,5 @@
 # 🏦 Banco Capital RP
+<<<<<<< HEAD
 
 Sistema bancario web completo para el servidor de roleplay **Capital Roleplay**. Incluye registro/inicio de sesión con verificación de identidad IC, transferencias, sistema de préstamos con pagos semanales automáticos, tarjetas bancarias decorativas, niveles de cliente, estadísticas y un panel de administrador completo.
 
@@ -86,3 +87,5 @@ Desde `admin.html` (o el enlace "Panel Admin" que aparece automáticamente en el
 - **Colores:** todos definidos como variables CSS al inicio de `public/css/style.css` (`--purple`, `--fuchsia`, `--blue-neon`, etc.).
 - **Niveles de cliente:** función `clienteNivel()` en `db.js`.
 - **Tramos de préstamo:** función `weeklyPaymentFor()` en `db.js`.
+=======
+>>>>>>> c9fee299fb3fbb48f0da9c22b2cae30fa2c839b4
